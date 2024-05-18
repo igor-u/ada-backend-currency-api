@@ -5,20 +5,27 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import br.com.ada.currencyapi.client.AwesomeClient;
 import br.com.ada.currencyapi.domain.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import br.com.ada.currencyapi.exception.CoinNotFoundException;
 import br.com.ada.currencyapi.exception.CurrencyException;
 import br.com.ada.currencyapi.repository.CurrencyRepository;
-import lombok.RequiredArgsConstructor;
 
 @Service
-@RequiredArgsConstructor
 public class CurrencyService {
 
     private final CurrencyRepository currencyRepository;
-    private final QuoteService quoteService;
+
+    private final AwesomeClient awesomeClient;
+
+    @Autowired
+    public CurrencyService(CurrencyRepository currencyRepository, AwesomeClient awesomeClient) {
+        this.currencyRepository = currencyRepository;
+        this.awesomeClient = awesomeClient;
+    }
 
     public List<CurrencyResponse> get() {
         List<Currency> currencies = currencyRepository.findAll();
@@ -74,19 +81,27 @@ public class CurrencyService {
         return request.getAmount().multiply(exchange);
     }
 
-    public ConvertCurrencyResponse convertUsingExternalApi(ConvertCurrencyRequest request) {
-        String currencyToCurrency = String.format("%s-%s".toUpperCase(), request.getFrom(), request.getTo());
-
-        Conversion conversion = quoteService.getQuote(currencyToCurrency);
-
-        BigDecimal high = new BigDecimal(
-                conversion.getQuotes()
-                        .get(currencyToCurrency.replace("-", ""))
-                        .getHigh());
-
+    public ConvertCurrencyResponse convertUsingExternalApi(ConvertCurrencyRequest request) throws CoinNotFoundException {
+        BigDecimal amount = getAmountUsingExternalApi(request);
         return ConvertCurrencyResponse.builder()
-                .amount(request.getAmount().multiply(high))
+                .amount(amount)
                 .build();
 
     }
+
+    private BigDecimal getAmountUsingExternalApi(ConvertCurrencyRequest request) throws CoinNotFoundException {
+        String currencyToCurrency = String.format("%s-%s".toUpperCase(), request.getFrom(), request.getTo());
+
+        var response = awesomeClient.get(currencyToCurrency);
+
+        BigDecimal high = new BigDecimal(response
+                .getBody()
+                .getQuotes()
+                .get(currencyToCurrency.replace("-", ""))
+                .getHigh());
+
+        return request.getAmount().multiply(high);
+
+    }
+
 }

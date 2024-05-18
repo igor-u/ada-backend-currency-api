@@ -1,4 +1,4 @@
-package br.com.ada.currencyapi.domain;
+package br.com.ada.currencyapi.client;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;

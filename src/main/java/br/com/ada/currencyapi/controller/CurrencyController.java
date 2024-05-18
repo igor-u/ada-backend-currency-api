@@ -42,13 +42,8 @@ public class CurrencyController {
         return new ResponseEntity<>(currencyService.convert(request), HttpStatus.OK);
     }
 
-    @GetMapping("/api-convert/{from}/{to}/{amount}")
-    public ResponseEntity<ConvertCurrencyResponse> convertUsingExternalApi(@PathVariable String from, @PathVariable String to, @PathVariable String amount) throws CoinNotFoundException {
-        ConvertCurrencyRequest request = ConvertCurrencyRequest.builder()
-                .from(from)
-                .to(to)
-                .amount(new BigDecimal(amount))
-                .build();
+    @GetMapping("/api-convert")
+    public ResponseEntity<ConvertCurrencyResponse> convertUsingExternalApi(ConvertCurrencyRequest request) throws CurrencyException {
         return new ResponseEntity<>(currencyService.convertUsingExternalApi(request), HttpStatus.OK);
     }
 

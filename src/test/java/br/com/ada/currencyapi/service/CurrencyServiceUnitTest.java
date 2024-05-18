@@ -1,5 +1,6 @@
 package br.com.ada.currencyapi.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -15,6 +16,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import br.com.ada.currencyapi.client.AwesomeClient;
+import br.com.ada.currencyapi.client.Conversion;
+import br.com.ada.currencyapi.client.Quote;
 import br.com.ada.currencyapi.domain.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -27,7 +31,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import br.com.ada.currencyapi.exception.CoinNotFoundException;
 import br.com.ada.currencyapi.exception.CurrencyException;
 import br.com.ada.currencyapi.repository.CurrencyRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 
 @ExtendWith(MockitoExtension.class)
 public class CurrencyServiceUnitTest {
@@ -39,54 +43,51 @@ public class CurrencyServiceUnitTest {
     private CurrencyRepository currencyRepository;
 
     @Mock
-    private QuoteAPIConsumer quoteAPIConsumer;
+    private AwesomeClient awesomeClient;
 
     @Test
-    void testGetCurrencies() {
+    void testGet() {
         List<Currency> list = new ArrayList<>();
         list.add(Currency.builder()
                 .id(1L)
-                .name("LCS")
-                .description("Moeda do lucas")
+                .name("EUR")
+                .description("Euro")
                 .build());
         list.add(Currency.builder()
                 .id(2L)
-                .name("YAS")
-                .description("Moeda da yasmin")
+                .name("USD")
+                .description("Dollar")
                 .build());
 
         when(currencyRepository.findAll()).thenReturn(list);
 
         List<CurrencyResponse> responses = currencyService.get();
         Assertions.assertNotNull(responses);
-        Assertions.assertEquals(2, responses.size());
-        Assertions.assertEquals("1 - LCS", responses.get(0).getLabel());
-        Assertions.assertEquals("2 - YAS", responses.get(1).getLabel());
-
+        assertEquals(2, responses.size());
+        assertEquals("1 - EUR", responses.get(0).getLabel());
+        assertEquals("2 - USD", responses.get(1).getLabel());
     }
 
     @Test
-    void testCreateCurrency() {
+    void testCreate() {
         Mockito.when(currencyRepository.findByName(anyString())).thenReturn(null);
         Mockito.when(currencyRepository.save(any(Currency.class))).thenReturn(Currency.builder().id(3L).build());
 
         Long id = currencyService.create(CurrencyRequest.builder().name("name").build());
         Assertions.assertNotNull(id);
-
     }
 
     @Test
-    void testCreateCurrencyThrowsCurrencyException() {
+    void testCreateThrowsCurrencyException() {
         Mockito.when(currencyRepository.findByName(any())).thenReturn(Currency.builder().build());
 
         CurrencyException exception = Assertions.assertThrows(CurrencyException.class, () -> currencyService.create(CurrencyRequest.builder().build()));
 
-        Assertions.assertEquals("Coin already exists", exception.getMessage());
-
+        assertEquals("Coin already exists", exception.getMessage());
     }
 
     @Test
-    void testDeleteCurrency() {
+    void testDelete() {
         doNothing().when(currencyRepository).deleteById(anyLong());
         currencyService.delete(1L);
         verify(currencyRepository, times(1)).deleteById(anyLong());
@@ -94,7 +95,7 @@ public class CurrencyServiceUnitTest {
     }
 
     @Test
-    void testConvertCurrency() {
+    void testConvert() {
         Mockito.when(currencyRepository.findByName(any())).thenReturn(
                 Currency.builder()
                         .exchanges(Map.of("EUR", new BigDecimal("2")))
@@ -108,12 +109,11 @@ public class CurrencyServiceUnitTest {
                 .build();
 
         ConvertCurrencyResponse response = currencyService.convert(request);
-        Assertions.assertEquals(new BigDecimal("20"), response.getAmount());
-
+        assertEquals(new BigDecimal("20"), response.getAmount());
     }
 
     @Test
-    void testConvertCurrencyThrowsCoinNotFoundException() {
+    void testConvertThrowsCoinNotFoundException() {
         Mockito.when(currencyRepository.findByName(any())).thenReturn(null);
         ConvertCurrencyRequest request = ConvertCurrencyRequest
                 .builder()
@@ -124,12 +124,11 @@ public class CurrencyServiceUnitTest {
 
         CoinNotFoundException exception = Assertions.assertThrows(CoinNotFoundException.class, () -> currencyService.convert(request));
 
-        Assertions.assertEquals("Coin not found: USD", exception.getMessage());
-
+        assertEquals("Coin not found: USD", exception.getMessage());
     }
 
     @Test
-    void testConvertCurrencyThrowsCoinNotFoundExceptionForExchange() {
+    void testConvertThrowsCoinNotFoundExceptionForExchange() {
         Mockito.when(currencyRepository.findByName(any())).thenReturn(Currency.builder()
                 .exchanges(Map.of("BRL", new BigDecimal("2")))
                 .build());
@@ -142,7 +141,7 @@ public class CurrencyServiceUnitTest {
 
         CoinNotFoundException exception = Assertions.assertThrows(CoinNotFoundException.class, () -> currencyService.convert(request));
 
-        Assertions.assertEquals("Exchange EUR not found for USD", exception.getMessage());
+        assertEquals("Exchange EUR not found for USD", exception.getMessage());
     }
 
     @Test
@@ -159,11 +158,13 @@ public class CurrencyServiceUnitTest {
         var convertCurrencyRequest = ConvertCurrencyRequest.builder()
                 .from("USD")
                 .to("BRL")
+                .amount(BigDecimal.TEN)
                 .build();
 
-        when(quoteAPIConsumer.getQuote(any())).thenReturn(conversion);
+        Mockito.when(awesomeClient.get(any())).thenReturn(ResponseEntity.ok(conversion));
 
         var quote = currencyService.convertUsingExternalApi(convertCurrencyRequest);
-        System.out.println(quote.getAmount());
+
+        assertEquals(new BigDecimal("55.00"), quote.getAmount());
     }
 }

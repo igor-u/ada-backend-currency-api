@@ -38,7 +38,7 @@ public class CurrencyControllerIntegrationTest {
     private CurrencyRepository currencyRepository;
 
     @Test
-    void testGetCurrencyReturns200() throws Exception {
+    void testGetReturns200() throws Exception {
         assertEquals(0, currencyRepository.count());
 
         currencyRepository.save(new Currency(1L, "BRL", "BRL", null));
@@ -54,7 +54,7 @@ public class CurrencyControllerIntegrationTest {
     }
 
     @Test
-    void testCreateCurrencyReturns200() throws Exception {
+    void testCreateReturns200() throws Exception {
         CurrencyRequest request = CurrencyRequest.builder()
                 .name("USD")
                 .build();
@@ -75,7 +75,7 @@ public class CurrencyControllerIntegrationTest {
     }
 
     @Test
-    void testCreateCurrencyReturns500() throws Exception {
+    void testCreateReturns500() throws Exception {
         currencyRepository.save(new Currency(null, "USD", "Dollars", null));
         CurrencyRequest request = CurrencyRequest.builder()
                 .name("USD")
@@ -93,11 +93,10 @@ public class CurrencyControllerIntegrationTest {
                 .andDo(MockMvcResultHandlers.print());
 
         currencyRepository.deleteAll();
-
     }
 
     @Test
-    void testConvertCurrencyReturns200() throws Exception {
+    void testConvertReturns200() throws Exception {
         currencyRepository.save(new Currency(1L, "BRL", "BRL", Map.of("USD", BigDecimal.TEN)));
 
         mockMvc.perform(
@@ -111,7 +110,7 @@ public class CurrencyControllerIntegrationTest {
     }
 
     @Test
-    void testConvertCurrencyThrowsCoinNotFoundAndReturns404() throws Exception {
+    void testConvertThrowsCoinNotFoundAndReturns404() throws Exception {
 
         mockMvc.perform(
                         get("/currency/convert?from=BRL&to=USD&amount=5")
@@ -124,7 +123,7 @@ public class CurrencyControllerIntegrationTest {
     }
 
     @Test
-    void testConvertCurrencyExchangeNotFoundAndReturns404() throws Exception {
+    void testConvertExchangeNotFoundAndReturns404() throws Exception {
         currencyRepository.save(new Currency(1L, "BRL", "BRL", Map.of("USD", BigDecimal.TEN)));
 
         mockMvc.perform(
@@ -140,12 +139,21 @@ public class CurrencyControllerIntegrationTest {
     @Test
     void convertUsingExternalApiReturns200() throws Exception {
         mockMvc.perform(
-                        get("/currency/api-convert/USD/BRL/2")
+                        get("/currency/api-convert?from=USD&to=BRL&amount=2")
                 )
                 .andExpect(status().isOk())
                 .andDo(print());
     }
 
+    @Test
+    void convertUsingExternalApiReturns500() throws Exception {
+        mockMvc.perform(
+                        get("/currency/api-convert?from=XXX&to=XXX&amount=2")
+                )
+                .andExpect(status().is5xxServerError())
+                .andExpect(jsonPath("$").value("Error while processing your request. Try again later."))
+                .andDo(print());
+    }
 
     @Test
     void testDeleteReturns200() throws Exception {
